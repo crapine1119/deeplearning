@@ -51,6 +51,10 @@ if __name__ == "__main__":
     # implemented batch norm
     layer = BatchNorm2DImplemented(c, TrainingMode.train)
     implemented = layer(input_tensor)
+    layer._mean
+    layer._var
+    loss = implemented.mean()
+    loss.backward()
 
     # origin batch norm
     origin = BatchNorm2d(c)(input_tensor)
