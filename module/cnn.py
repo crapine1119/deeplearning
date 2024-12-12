@@ -26,8 +26,8 @@ class CNN2DImplemented(nn.Module):
         )
         x = self._pad_img(x)
         col = img2col_tensor(x, kernel_size=self._kernel_size, stride=self._stride)
-        col = torch.matmul(col, self._weight.reshape(-1, self._out_channel))
-        return torch.dot(col, self._weight.reshape(-1, self._out_channel))
+        output = torch.matmul(col, self._weight.reshape(-1, self._out_channel))
+        return output.permute(0, -1, 1, 2)  # reshape to {N, C, H, W}
 
 
 if __name__ == "__main__":
