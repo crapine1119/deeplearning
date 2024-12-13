@@ -30,3 +30,12 @@ def img2col_tensor(x: torch.Tensor, kernel_size: int = 3, stride: int = 1) -> to
             patch = x[..., row_start : row_end + 1 : stride, col_start : col_end + 1 : stride]  # N, C, p1, p2
             output[..., row_start, col_start] = patch.permute(0, 2, 3, 1)
     return output.reshape(n, out_h, out_w, -1)
+
+
+if __name__ == "__main__":
+    img = [[[[int(f"{k}{i}{j}") for i in range(1, 8)] for j in range(1, 8)] for k in range(1, 2)]]
+    img = np.array(img)
+    reshaped = img2col(img)
+    reshaped.shape
+    for i in range(9):
+        print(reshaped[0, -1, -1, i])
