@@ -194,7 +194,8 @@ def main():
             print(loss.item())
 
     model.eval()
-    model.generate(torch.LongTensor([[s2i["\n"]]]).to("mps"))
+    print(f"Model params: {sum(p.numel() for p in model.parameters()) / 1e+6}M")
+    model.generate(torch.LongTensor([[s2i["."]]]).to("mps"))
     print("finish")
 
 
