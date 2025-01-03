@@ -1,9 +1,10 @@
+import time
 from random import shuffle
 from typing import Any
 
 import torch
 from torch import Tensor, nn
-from torch.nn.functional import cross_entropy, softmax
+from torch.nn.functional import cross_entropy, softmax, scaled_dot_product_attention
 from tqdm import tqdm
 
 with open(
@@ -66,16 +67,16 @@ class Attention(nn.Module):
         q = q.permute(0, 3, 1, 2)
         k = k.permute(0, 3, 1, 2)
         v = v.permute(0, 3, 1, 2)
-
-        weight = q @ k.transpose(-2, -1)
-        d = q.shape[-1]
-        scale = d**0.5
-        mh_attn = weight / scale
-        mask = torch.ones_like(mh_attn).tril()
-        mh_attn.masked_fill_(mask == 0, float("-inf"))
-        mh_attn = torch.softmax(mh_attn, dim=-1)
-        mh_attn = mh_attn @ v
-
+        # weight = q @ k.transpose(-2, -1)
+        # d = q.shape[-1]
+        # scale = d**0.5
+        # mh_attn = weight / scale
+        # mask = torch.ones_like(mh_attn).tril()
+        # mh_attn.masked_fill_(mask == 0, float("-inf"))
+        # mh_attn = torch.softmax(mh_attn, dim=-1)
+        # mh_attn = mh_attn @ v
+        # To apply Flash attention
+        mh_attn = scaled_dot_product_attention(q, k, v, is_causal=True)
         attn = mh_attn.permute(0, 2, 3, 1).flatten(-2, -1)
         return attn
 
@@ -155,9 +156,10 @@ class GPT(nn.Module):
 
 
 def main():
-    epoch = 10
+    epoch = 20
     batch_size = 16
     sequence_len = 16 + 1
+    torch.set_float32_matmul_precision("medium")
     train_dataset = [
         torch.LongTensor(train_data[i : i + sequence_len]) for i in range(0, len(train_data), sequence_len)
     ]
@@ -185,13 +187,18 @@ def main():
     model.to(torch.device("mps"))
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     model.train()
+    start = time.time()
     for e in range(epoch):
         for x, y in tqdm(train_dataloader, postfix=f"epoch: {e}"):
             optimizer.zero_grad()
-            _, loss = model(x.to("mps"), y.to("mps"))
+            with torch.autocast(device_type="mps", dtype=torch.bfloat16):
+                _, loss = model(x.to("mps"), y.to("mps"))
             loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             print(loss.item())
+    end = time.time()
+    print("time: ", end - start)
 
     model.eval()
     print(f"Model params: {sum(p.numel() for p in model.parameters()) / 1e+6}M")
