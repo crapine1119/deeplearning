@@ -99,8 +99,8 @@ class DecoderLayer(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = self._layer_norm1(self._attn_layer(x) + x)
-        out = self._layer_norm2(self._ffw_layer(out) + out)
+        out = self._attn_layer(self._layer_norm1(x) + x)
+        out = self._ffw_layer(self._layer_norm2(out) + out)
         return out
 
 
