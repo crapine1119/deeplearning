@@ -99,8 +99,8 @@ class DecoderLayer(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = self._attn_layer(self._layer_norm1(x) + x)
-        out = self._ffw_layer(self._layer_norm2(out) + out)
+        out = self._attn_layer(self._layer_norm1(x)) + x
+        out = self._ffw_layer(self._layer_norm2(out)) + out
         return out
 
 
@@ -155,7 +155,7 @@ class GPT(nn.Module):
 
 
 def main():
-    epoch = 15
+    epoch = 10
     batch_size = 16
     sequence_len = 16 + 1
     train_dataset = [
@@ -194,7 +194,7 @@ def main():
             print(loss.item())
 
     model.eval()
-    model.generate(torch.LongTensor([[s2i["학"]]]).to("mps"))
+    model.generate(torch.LongTensor([[s2i["\n"]]]).to("mps"))
     print("finish")
 
 
