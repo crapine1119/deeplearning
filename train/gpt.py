@@ -51,22 +51,33 @@ class Projection(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, channel_size: int):
+    def __init__(self, channel_size: int, num_head: int = 4):
         super().__init__()
         self._proj_layer = Projection(channel_size)
+        self._num_head = num_head
 
     def forward(self, x: torch.Tensor):
-        q, k, v = self._proj_layer(x)
+        q, k, v = self._proj_layer(x)  # B, T, C
+        b, t, c = q.shape
+        q = q.view(b, t, c // self._num_head, self._num_head)
+        k = k.view(b, t, c // self._num_head, self._num_head)
+        v = v.view(b, t, c // self._num_head, self._num_head)
+
+        q = q.permute(0, 3, 1, 2)
+        k = k.permute(0, 3, 1, 2)
+        v = v.permute(0, 3, 1, 2)
+
         weight = q @ k.transpose(-2, -1)
         d = q.shape[-1]
         scale = d**0.5
-        attn = weight / scale
-        mask = torch.ones_like(attn).tril()
-        mask.masked_fill_(mask == 0, float("-inf"))
-        mask.masked_fill_(mask == 1, 0)
+        mh_attn = weight / scale
+        mask = torch.ones_like(mh_attn).tril()
+        mh_attn.masked_fill_(mask == 0, float("-inf"))
+        mh_attn = torch.softmax(mh_attn, dim=-1)
+        mh_attn = mh_attn @ v
 
-        attn = torch.softmax(attn + mask, dim=-1)
-        return attn @ v
+        attn = mh_attn.permute(0, 2, 3, 1).flatten(-2, -1)
+        return attn
 
 
 class DecoderLayer(nn.Module):
@@ -82,6 +93,7 @@ class DecoderLayer(nn.Module):
         return nn.Sequential(
             *[
                 nn.Linear(channel_size, channel_size * expansion_size),
+                nn.ReLU(),
                 nn.Linear(channel_size * expansion_size, channel_size),
             ]
         )
@@ -143,7 +155,7 @@ class GPT(nn.Module):
 
 
 def main():
-    epoch = 3
+    epoch = 15
     batch_size = 16
     sequence_len = 16 + 1
     train_dataset = [
@@ -182,7 +194,7 @@ def main():
             print(loss.item())
 
     model.eval()
-    model.generate(torch.LongTensor([[s2i["\n"]]]).to("mps"))
+    model.generate(torch.LongTensor([[s2i["학"]]]).to("mps"))
     print("finish")
 
 
